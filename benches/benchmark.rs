@@ -2,7 +2,11 @@ use std::f64::consts::PI;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use iter_num_tools::lin_space;
-use polynomial::Polynomial;
+use num_complex::Complex;
+use polynomial::Polynomial;use rand::distributions::Uniform;
+use rand::prelude::Distribution;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 fn eval_scalar_polynomial(num_samples: usize) {
     let poly_quadratic = Polynomial::new(vec![-5.0, 2.5, 1.0]);
@@ -16,9 +20,44 @@ fn eval_scalar_polynomial(num_samples: usize) {
     }
 }
 
+fn eval_complex_polynomial(num_samples: usize) {
+    let mut rng = StdRng::seed_from_u64(12345);
+    let dist = Uniform::from(-9.0..9.0);
+
+    let mut sample_complex_value = ||{Complex::new(dist.sample(&mut rng), dist.sample(&mut rng))};
+
+    let sample_complex_vector = |length: usize| -> Vec<Complex<f64>> {
+        (0..length)
+            .map(|_| {
+                let real_part = dist.sample(&mut rng);
+                let imaginary_part = dist.sample(&mut rng);
+                Complex::new(real_part, imaginary_part)
+            })
+            .collect()
+    };
+
+    let poly_3 =  Polynomial::new(sample_complex_vector(3));
+    let poly_4 =  Polynomial::new(sample_complex_vector(4));
+    let poly_5 =  Polynomial::new(sample_complex_vector(5));
+    let sqrt_sample_count = (num_samples as f64).sqrt() as usize;
+    let real_iter = lin_space(-5.0..=5.0,sqrt_sample_count);
+    let imag_iter = lin_space(-5.0..=5.0,sqrt_sample_count);
+    for real in real_iter  {
+        for imag in imag_iter {
+            let value = Complex::new(real, imag);
+            black_box(poly_3.eval(value));
+            black_box(poly_4.eval(value));
+            black_box(poly_5.eval(value));
+        }
+    }
+}
+
 fn benchmark(c: &mut Criterion) {
-    c.bench_function("eval_cubic_scalar_polynomial", |b| {
+    c.bench_function("eval_scalar_polynomial", |b| {
         b.iter(|| eval_scalar_polynomial(5000))
+    });
+    c.bench_function("eval_complex_polynomial", |b| {
+        b.iter(|| eval_complex_polynomial(5000))
     });
 }
 
