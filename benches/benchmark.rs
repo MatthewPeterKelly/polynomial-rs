@@ -8,7 +8,8 @@ use rand::distributions::Uniform;
 use rand::prelude::Distribution;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
-use rug::Float;
+use num_bigint::BigInt;
+use num_rational::BigRational;
 
 fn eval_scalar_polynomial(num_samples: usize) {
     let poly_quadratic = Polynomial::new(vec![-5.0, 2.5, 1.0]);
@@ -22,22 +23,15 @@ fn eval_scalar_polynomial(num_samples: usize) {
     }
 }
 
-fn eval_high_precision_polynomial(num_samples: usize, precision: u32) {
-    let mut rng = StdRng::seed_from_u64(12345);
-    let dist = Uniform::from(-9.0..9.0);
-    let mut sample_vector = |length: usize| -> Vec<Float> {
-        (0..length)
-            .map(|_| Float::with_value(precision, dist.sample(&mut rng)))
-            .collect()
-    };
-    let poly_3 = Polynomial::new(sample_complex_vector(3));
-    let poly_4 = Polynomial::new(sample_complex_vector(4));
-    let poly_5 = Polynomial::new(sample_complex_vector(5));
-    for angle in queries {
-        black_box(poly_3.eval(value));
-        black_box(poly_4.eval(value));
-        black_box(poly_5.eval(value));
-    }
+fn eval_high_precision_polynomial(_num_samples: usize) {
+
+    let val_1 = BigRational::new( BigInt::from(1), BigInt::from(3));
+    let val_2 = BigRational::new( BigInt::from(2), BigInt::from(3));
+    let val_3 = BigRational::new( BigInt::from(5), BigInt::from(7));
+    let poly_3 = Polynomial::new([val_1, val_2, val_3].to_vec());
+
+black_box(poly_3.eval( BigRational::new( BigInt::from(3), BigInt::from(4))));
+
 }
 
 fn eval_complex_polynomial(num_samples: usize) {
@@ -73,7 +67,7 @@ fn benchmark(c: &mut Criterion) {
         b.iter(|| eval_complex_polynomial(5000))
     });
     c.bench_function("eval_high_precision_polynomial", |b| {
-        b.iter(|| eval_high_precision_polynomial(5000, 250))
+        b.iter(|| eval_high_precision_polynomial(5000))
     });
 }
 
