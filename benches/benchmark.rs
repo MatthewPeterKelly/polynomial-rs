@@ -11,15 +11,20 @@ use rand::prelude::Distribution;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
-fn eval_scalar_polynomial(num_samples: usize) {
-    let poly_quadratic = Polynomial::new(vec![-5.0, 2.5, 1.0]);
-    let poly_sin_cubic = Polynomial::chebyshev(&f64::sin, 4, -PI, PI).unwrap();
-    let poly_cos_quartic = Polynomial::chebyshev(&f64::cos, 5, -PI, PI).unwrap();
+fn create_rng_scalar_polynomial<R, D>(num_samples: usize, rng: &mut R, dist: &D) -> Polynomial<f64>
+where
+    R: Rng,
+    D: Distribution<f64>,
+{
+    Polynomial::new((0..num_samples).map(|_| dist.sample(rng)).collect())
+}
+
+fn eval_scalar_polynomial(num_samples: usize, poly_arr: &[Polynomial<f64>; 3]) {
     let queries = lin_space(-5.0..=5.0, num_samples);
-    for angle in queries {
-        black_box(poly_quadratic.eval(angle));
-        black_box(poly_sin_cubic.eval(angle));
-        black_box(poly_cos_quartic.eval(angle));
+    for query in queries {
+        for poly in poly_arr {
+            black_box(poly.eval(query));
+        }
     }
 }
 
@@ -68,6 +73,12 @@ fn benchmark(c: &mut Criterion) {
     let mut rng = StdRng::seed_from_u64(12345);
     let real_dist = Uniform::from(-9.0..9.0);
 
+    let scalar_poly_arr = [
+        create_rng_scalar_polynomial(3, &mut rng, &real_dist),
+        create_rng_scalar_polynomial(4, &mut rng, &real_dist),
+        create_rng_scalar_polynomial(5, &mut rng, &real_dist),
+    ];
+
     let complex_poly_arr = [
         create_rng_complex_polynomial(3, &mut rng, &real_dist),
         create_rng_complex_polynomial(4, &mut rng, &real_dist),
@@ -77,7 +88,7 @@ fn benchmark(c: &mut Criterion) {
     // Actually run all of the benchmarks:
 
     c.bench_function("eval_scalar_polynomial", |b| {
-        b.iter(|| eval_scalar_polynomial(num_samples))
+        b.iter(|| eval_scalar_polynomial(num_samples, &scalar_poly_arr))
     });
 
     c.bench_function("eval_complex_polynomial", |b| {
