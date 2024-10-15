@@ -32,42 +32,56 @@ fn eval_high_precision_polynomial(_num_samples: usize) {
     black_box(poly_3.eval(BigRational::new(BigInt::from(3), BigInt::from(4))));
 }
 
-fn sample_complex_vector<R, D>(num_samples: usize, rng: &mut R, dist: &D) -> Vec<Complex<f64>>
+fn create_rng_complex_polynomial<R, D>(
+    num_samples: usize,
+    rng: &mut R,
+    dist: &D,
+) -> Polynomial<Complex<f64>>
 where
     R: Rng,
     D: Distribution<f64>,
 {
-    (0..num_samples)
-        .map(|_| Complex::new(dist.sample(rng), dist.sample(rng)))
-        .collect()
+    Polynomial::new(
+        (0..num_samples)
+            .map(|_| Complex::new(dist.sample(rng), dist.sample(rng)))
+            .collect(),
+    )
 }
 
-fn eval_complex_polynomial(sqrt_num_samples: usize) {
-    let mut rng = StdRng::seed_from_u64(12345);
-    let dist = Uniform::from(-9.0..9.0);
-
-    let poly_3 = Polynomial::new(sample_complex_vector(3, &mut rng, &dist));
-    let poly_4 = Polynomial::new(sample_complex_vector(4, &mut rng, &dist));
-    let poly_5 = Polynomial::new(sample_complex_vector(5, &mut rng, &dist));
+fn eval_complex_polynomial(sqrt_num_samples: usize, poly_arr: &[Polynomial<Complex<f64>>; 3]) {
     let real_iter = lin_space(-5.0..=5.0, sqrt_num_samples);
     for real in real_iter {
         let imag_iter = lin_space(-5.0..=5.0, sqrt_num_samples);
         for imag in imag_iter {
             let value = Complex::new(real, imag);
-            black_box(poly_3.eval(value));
-            black_box(poly_4.eval(value));
-            black_box(poly_5.eval(value));
+            for poly in poly_arr {
+                black_box(poly.eval(value));
+            }
         }
     }
 }
 
 fn benchmark(c: &mut Criterion) {
+    // Set up for all of the benchmarks:
+
     let num_samples = 5000;
+    let mut rng = StdRng::seed_from_u64(12345);
+    let real_dist = Uniform::from(-9.0..9.0);
+
+    let complex_poly_arr = [
+        create_rng_complex_polynomial(3, &mut rng, &real_dist),
+        create_rng_complex_polynomial(4, &mut rng, &real_dist),
+        create_rng_complex_polynomial(5, &mut rng, &real_dist),
+    ];
+
+    // Actually run all of the benchmarks:
+
     c.bench_function("eval_scalar_polynomial", |b| {
         b.iter(|| eval_scalar_polynomial(num_samples))
     });
+
     c.bench_function("eval_complex_polynomial", |b| {
-        b.iter(|| eval_complex_polynomial( (num_samples as f64).sqrt() as usize))
+        b.iter(|| eval_complex_polynomial((num_samples as f64).sqrt() as usize, &complex_poly_arr))
     });
     c.bench_function("eval_high_precision_polynomial", |b| {
         b.iter(|| eval_high_precision_polynomial(num_samples))
