@@ -1,5 +1,3 @@
-use std::f64::consts::PI;
-
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use iter_num_tools::lin_space;
 use num_bigint::BigInt;
@@ -81,9 +79,9 @@ fn eval_big_rational_polynomial(num_samples: usize, poly_arr: &[Polynomial<BigRa
     let num_iter = lin_space(-500_000..=500_000, num_samples);
     let den = BigInt::from(100_000);
     for num in num_iter {
+        let query = BigRational::new(BigInt::from(num), den.clone());
         for poly in poly_arr {
-            let query = BigRational::new(BigInt::from(num), den.clone());
-            black_box(poly.eval(query));
+            black_box(poly.eval(query.clone()));
         }
     }
 }
@@ -91,7 +89,6 @@ fn eval_big_rational_polynomial(num_samples: usize, poly_arr: &[Polynomial<BigRa
 fn benchmark(c: &mut Criterion) {
     // Set up for all of the benchmarks:
 
-    let num_samples = 5000;
     let mut rng = StdRng::seed_from_u64(12345);
     let f64_dist = Uniform::from(-9.0..9.0);
     let i64_dist = Uniform::from(i64::MIN..i64::MAX);
@@ -108,17 +105,24 @@ fn benchmark(c: &mut Criterion) {
         create_rng_complex_polynomial(5, &mut rng, &f64_dist),
     ];
 
+    let big_rational_poly_arr = [
+        create_rng_big_rational_polynomial(3, &mut rng, &i64_dist),
+        create_rng_big_rational_polynomial(4, &mut rng, &i64_dist),
+        create_rng_big_rational_polynomial(5, &mut rng, &i64_dist),
+    ];
+
     // Actually run all of the benchmarks:
 
     c.bench_function("eval_scalar_polynomial", |b| {
-        b.iter(|| eval_scalar_polynomial(num_samples, &scalar_poly_arr))
+        b.iter(|| eval_scalar_polynomial(5000, &scalar_poly_arr))
     });
 
     c.bench_function("eval_complex_polynomial", |b| {
-        b.iter(|| eval_complex_polynomial((num_samples as f64).sqrt() as usize, &complex_poly_arr))
+        b.iter(|| eval_complex_polynomial(72, &complex_poly_arr))
     });
-    c.bench_function("eval_high_precision_polynomial", |b| {
-        b.iter(|| eval_high_precision_polynomial(num_samples))
+
+    c.bench_function("eval_big_rational_polynomial", |b| {
+        b.iter(|| eval_big_rational_polynomial(200, &big_rational_poly_arr))
     });
 }
 
