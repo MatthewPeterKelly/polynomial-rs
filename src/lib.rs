@@ -10,7 +10,7 @@
 #![warn(unused_qualifications)]
 #![warn(unused_results)]
 
-use core::ops::{Add, Div, Mul, Neg, Sub};
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
 use core::{cmp, fmt};
 use num_traits::{FromPrimitive, One, Zero};
 
@@ -168,6 +168,28 @@ impl<T: Zero + Mul<Output = T> + Clone> Polynomial<T> {
             result = n.clone() + result * x.clone();
         }
         result
+    }
+}
+
+impl<T> Polynomial<T>
+where
+    T: for<'a> MulAssign<&'a T> + for<'a> AddAssign<&'a T> + Zero,
+{
+    /// Evaluates the polynomial at a point.
+    /// All operations are performed in-place, avoiding memory allocation.
+    ///
+    /// NOTE: This is a work-in-progress prototype. It is not actually faster
+    /// in benchmarks, and the mutability in the arguments is not great. Ideally
+    /// only the `result` argument would be mutable. But I couldn't get that to
+    /// compile.
+    /// ```
+    #[inline]
+    pub fn eval_in_place(&mut self, x: &mut T, result: &mut T) {
+        *result = T::zero();
+        for n in self.data.iter().rev() {
+            result.mul_assign(x);
+            result.add_assign(n);
+        }
     }
 }
 
@@ -511,6 +533,16 @@ mod tests {
         check(&[1, 1], |x| x + 1);
         check(&[0, 1], |x| x);
         check(&[10, -10, 10], |x| 10 * x * x - 10 * x + 10);
+    }
+
+    #[test]
+    fn eval_in_place() {
+        let data = vec![1.0, 2.0, 3.0];
+        let mut poly = Polynomial { data };
+        let mut x = 2.0;
+        let mut result = 0.0;
+        poly.eval_in_place(&mut x, &mut result);
+        assert_eq!(result, 17.0);
     }
 
     #[test]
